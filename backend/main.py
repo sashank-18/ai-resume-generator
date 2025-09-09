@@ -161,61 +161,96 @@ async def generate_resume(
     experience_json: str = Form("[]"),
 ):
     try:
-        education = json.loads(education_json)
-        experience = json.loads(experience_json)
+        # Parse JSON safely
+        try:
+            education = json.loads(education_json)
+            if not isinstance(education, list):
+                education = []
+        except:
+            education = []
 
+        try:
+            experience = json.loads(experience_json)
+            if not isinstance(experience, list):
+                experience = []
+        except:
+            experience = []
 
+        # Ensure name is valid for filename
+        safe_name = name.strip() or "resume"
+        filename = f"{safe_name.replace(' ','_')}_resume.docx"
+
+        # Create DOCX
         doc = Document()
 
-
-        header = doc.add_paragraph(name)
+        # Header
+        header = doc.add_paragraph(safe_name)
         header.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
         run = header.runs[0]
         run.font.size = Pt(18)
         run.bold = True
 
-        contact = doc.add_paragraph(f"{email} | {phone} | {location}")
+        # Contact info
+        contact_info = " | ".join([email or "", phone or "", location or ""])
+        contact = doc.add_paragraph(contact_info)
         contact.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
-
         doc.add_paragraph()
 
-
-        if summary:
+        # Summary
+        if summary.strip():
             doc.add_heading("Professional Summary", level=1)
-            doc.add_paragraph(summary)
+            doc.add_paragraph(summary.strip())
 
-
-        if skills:
+        # Skills
+        if skills.strip():
             doc.add_heading("Key Skills", level=1)
-            doc.add_paragraph(skills)
+            doc.add_paragraph(skills.strip())
 
-
+        # Experience
         if experience:
             doc.add_heading("Work Experience", level=1)
             for exp in experience:
-                para = doc.add_paragraph()
-                run = para.add_run(f"{exp.get('title','')} — {exp.get('company','')} ({exp.get('duration','')})")
-                run.bold = True
-                doc.add_paragraph(exp.get("description",""))
+                title = exp.get("title","").strip()
+                company = exp.get("company","").strip()
+                duration = exp.get("duration","").strip()
+                description = exp.get("description","").strip()
 
+                if title or company or duration:
+                    para = doc.add_paragraph()
+                    run = para.add_run(f"{title} — {company} ({duration})")
+                    run.bold = True
+                    if description:
+                        doc.add_paragraph(description)
 
+        # Education
         if education:
             doc.add_heading("Education", level=1)
             for edu in education:
-                para = doc.add_paragraph()
-                run = para.add_run(f"{edu.get('degree','')}, {edu.get('institution','')} ({edu.get('year','')})")
-                run.bold = True
+                degree = edu.get("degree","").strip()
+                institution = edu.get("institution","").strip()
+                year = edu.get("year","").strip()
 
+                if degree or institution or year:
+                    para = doc.add_paragraph()
+                    run = para.add_run(f"{degree}, {institution} ({year})")
+                    run.bold = True
+
+        # Save to BytesIO
         buf = BytesIO()
         doc.save(buf)
         buf.seek(0)
+
         return StreamingResponse(
             buf,
             media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            headers={"Content-Disposition": f"attachment; filename={name.replace(' ','_')}_resume.docx"}
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
         )
+
     except Exception as e:
-        return JSONResponse({"error": str(e)}, status_code=500)
+        # Catch any unexpected errors
+        return JSONResponse({"error": f"Resume generation failed: {str(e)}"}, status_code=500)
+
+
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
