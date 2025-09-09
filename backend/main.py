@@ -12,6 +12,8 @@ import fitz
 from tempfile import NamedTemporaryFile
 from typing import Optional
 from dotenv import load_dotenv
+from starlette.middleware.base import BaseHTTPMiddleware
+
 
 import google.generativeai as genai
 
@@ -37,14 +39,27 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+class CSPMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+        csp_value = (
+            "default-src 'self'; "
+            "connect-src 'self' https://ai-resume-generator-rw01.onrender.com; "
+            "script-src 'self'; "
+            "style-src 'self'; "
+            "img-src 'self' data:;"
+        )
+        response.headers['Content-Security-Policy'] = csp_value
+        return response
 
-# Serve static files (optional: for JS/CSS)
+app.add_middleware(CSPMiddleware)
+
 app.mount("/static", StaticFiles(directory="public"), name="static")
 
-# Serve index.html at root
 @app.get("/")
 def serve_index():
     return FileResponse("public/index.html")
+
 
 
 # Utility functions
