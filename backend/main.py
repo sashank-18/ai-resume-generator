@@ -3,6 +3,8 @@ from fastapi import FastAPI, File, UploadFile, Form
 from fastapi.responses import JSONResponse, StreamingResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+from fastapi.requests import Request
 import uvicorn
 import json
 import logging
@@ -24,6 +26,7 @@ from docx.shared import Pt
 from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
 
 from PyPDF2 import PdfReader
+templates = Jinja2Templates(directory="public")
 
 # Load environment variables
 load_dotenv()
@@ -42,11 +45,11 @@ app.add_middleware(
 )
 class CSPNonceMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
-        # Generate a secure random nonce on each request
         nonce = secrets.token_urlsafe(16)
-        
+        request.state.nonce = nonce  # ✅ store in request state
+
         response = await call_next(request)
-        
+
         csp_value = (
             f"default-src 'self'; "
             f"connect-src 'self' https://ai-resume-generator-rw01.onrender.com; "
@@ -54,9 +57,8 @@ class CSPNonceMiddleware(BaseHTTPMiddleware):
             f"style-src 'self' 'nonce-{nonce}'; "
             f"img-src 'self' data:;"
         )
-        response.headers['Content-Security-Policy'] = csp_value
-        
-        response.headers['X-CSP-Nonce'] = nonce
+        response.headers["Content-Security-Policy"] = csp_value
+        response.headers["X-CSP-Nonce"] = nonce
 
         return response
 
@@ -64,9 +66,10 @@ app.add_middleware(CSPNonceMiddleware)
 app.mount("/static", StaticFiles(directory="public"), name="static")
 
 @app.get("/")
-def serve_index():
-    return FileResponse("public/index.html")
-
+async def serve_index(request: Request):
+    # Get nonce from middleware
+    nonce = getattr(request.state, "nonce", "")
+    return templates.TemplateResponse("index.html", {"request": request, "nonce": nonce})
 
 
 # Utility functions
@@ -203,26 +206,34 @@ async def generate_resume(
             doc.add_heading("Professional Summary", level=1)
             doc.add_paragraph(summary)
 
-        # Skills
+        # Skills (bullet points)
         if skills:
             doc.add_heading("Key Skills", level=1)
-            doc.add_paragraph(skills)
+            for skill in skills.split(","):
+                doc.add_paragraph(skill.strip(), style="List Bullet")
 
-        # Experience
+        # Experience (bullet points for descriptions)
         if experience:
             doc.add_heading("Work Experience", level=1)
             for exp in experience:
                 para = doc.add_paragraph()
-                run = para.add_run(f"{exp.get('title','')} — {exp.get('company','')} ({exp.get('duration','')})")
+                run = para.add_run(
+                    f"{exp.get('title','')} — {exp.get('company','')} ({exp.get('duration','')})"
+                )
                 run.bold = True
-                doc.add_paragraph(exp.get("description",""))
+                if exp.get("description", ""):
+                    for line in exp["description"].split("\n"):
+                        if line.strip():
+                            doc.add_paragraph(line.strip(), style="List Bullet")
 
         # Education
         if education:
             doc.add_heading("Education", level=1)
             for edu in education:
                 para = doc.add_paragraph()
-                run = para.add_run(f"{edu.get('degree','')}, {edu.get('institution','')} ({edu.get('year','')})")
+                run = para.add_run(
+                    f"{edu.get('degree','')}, {edu.get('institution','')} ({edu.get('year','')})"
+                )
                 run.bold = True
 
         buf = BytesIO()
@@ -231,10 +242,13 @@ async def generate_resume(
         return StreamingResponse(
             buf,
             media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            headers={"Content-Disposition": f"attachment; filename={name.replace(' ','_')}_resume.docx"}
+            headers={
+                "Content-Disposition": f"attachment; filename={name.replace(' ','_')}_resume.docx"
+            },
         )
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
+
 
 # Run locally
 if __name__ == "__main__":
