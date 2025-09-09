@@ -46,7 +46,7 @@ class CSPMiddleware(BaseHTTPMiddleware):
             "default-src 'self'; "
             "connect-src 'self' https://ai-resume-generator-rw01.onrender.com; "
             "script-src 'self'; "
-            "style-src 'self'; "
+            "style-src 'self' 'unsafe-inline; "
             "img-src 'self' data:;"
         )
         response.headers['Content-Security-Policy'] = csp_value
