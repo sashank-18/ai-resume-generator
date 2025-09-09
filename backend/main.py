@@ -37,12 +37,12 @@ app.add_middleware(
 )
 
 # Serve static files (optional: for JS/CSS)
-app.mount("/static", StaticFiles(directory=".."), name="static")
+app.mount("/static", StaticFiles(directory="public"), name="static")
 
 # Serve index.html at root
 @app.get("/")
 def serve_index():
-    return FileResponse("../index.html")
+    return FileResponse("public/index.html")
 
 
 # Utility functions
