@@ -4,17 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AI Resume Builder</title>
-  <style>
-    body { font-family: Arial, sans-serif; padding: 20px; max-width: 900px; margin: auto; }
-    h2 { margin-top: 30px; }
-    input, textarea, select, button { width: 100%; margin: 5px 0 15px; padding: 8px; }
-    textarea { min-height: 60px; }
-    fieldset { margin-bottom: 20px; padding: 15px; }
-    fieldset legend { font-weight: bold; }
-    button { cursor: pointer; background-color: #4CAF50; color: white; border: none; border-radius: 5px; }
-    button:hover { background-color: #45a049; }
-    .section { margin-bottom: 25px; }
-  </style>
+  <!-- External CSS with nonce -->
+  <link rel="stylesheet" href="/static/style.css" nonce="{{ nonce }}">
 </head>
 <body>
 
@@ -62,7 +53,7 @@
 
 <p id="output"></p>
 
-<!-- ✅ External script with nonce -->
+<!-- External JS with nonce -->
 <script src="/static/script.js" nonce="{{ nonce }}"></script>
 
 </body>

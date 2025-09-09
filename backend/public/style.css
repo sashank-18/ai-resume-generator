@@ -1,0 +1,91 @@
+/* Global body styles */
+body {
+  font-family: Arial, sans-serif;
+  padding: 20px;
+  max-width: 900px;
+  margin: auto;
+  background-color: #f8f9fa;
+  color: #333;
+}
+
+/* Headings */
+h1 {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+h2 {
+  margin-top: 30px;
+  color: #2c3e50;
+}
+
+/* Form elements */
+input,
+textarea,
+select,
+button {
+  width: 100%;
+  margin: 5px 0 15px;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+textarea {
+  min-height: 60px;
+  resize: vertical;
+}
+
+/* Fieldsets */
+fieldset {
+  margin-bottom: 20px;
+  padding: 15px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  background-color: #ffffff;
+}
+
+fieldset legend {
+  font-weight: bold;
+  padding: 0 5px;
+}
+
+/* Buttons */
+button {
+  cursor: pointer;
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  font-size: 15px;
+  transition: background-color 0.3s ease;
+}
+
+button:hover {
+  background-color: #45a049;
+}
+
+/* Section container */
+.section {
+  margin-bottom: 25px;
+  padding: 15px;
+  background-color: #ffffff;
+  border-radius: 5px;
+  box-shadow: 0px 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+/* Output messages */
+#uploadStatus,
+#output {
+  font-size: 14px;
+  color: #555;
+  margin-top: 10px;
+}
+
+/* Small adjustments for experience/education fields */
+#experienceContainer fieldset,
+#educationContainer fieldset {
+  margin-bottom: 10px;
+}
