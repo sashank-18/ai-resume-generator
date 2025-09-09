@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import uvicorn
 import json
+import logging
 import os
 import shutil
 import fitz
@@ -26,7 +27,8 @@ load_dotenv()
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
 app = FastAPI(title="AI Resume & Career Guidance Bot")
-
+logging.basicConfig(level=logging.INFO)  # Set level to DEBUG, INFO, etc.
+logger = logging.getLogger(__name__)
 # Enable CORS
 app.add_middleware(
     CORSMiddleware,
@@ -88,6 +90,17 @@ def parse_resume_with_ai(text: str):
     return data
 
 # --- Endpoints ---
+
+@app.get("/hello")
+def hello():
+    logger.info("Hello endpoint was called")
+    try:
+        # your logic
+        logger.debug("Additional debug info")
+    except Exception as e:
+        logger.error(f"Error occurred: {e}", exc_info=True)
+    return {"message": "Hello World"}
+
 
 @app.post("/analyze")
 async def analyze_resume(
