@@ -190,7 +190,7 @@ async function generateResume() {
     const a = document.createElement("a");
     a.href = url;
     a.download = `${name.replace(/\s+/g,'_')}_resume.docx`;
-    document.body.appendChild(a);
+    a.target ="_blank";    document.body.appendChild(a);
     a.click();
     a.remove();
   } else {
@@ -198,6 +198,8 @@ async function generateResume() {
     alert("Resume generation failed: "+JSON.stringify(data));
   }
 }
+
+
 </script>
 </body>
 </html>
