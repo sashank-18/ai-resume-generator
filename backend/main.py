@@ -45,7 +45,7 @@ class CSPMiddleware(BaseHTTPMiddleware):
         csp_value = (
             "default-src 'self'; "
             "connect-src 'self' https://ai-resume-generator-rw01.onrender.com; "
-            "script-src 'self'; "
+            "script-src 'self' 'unsafe-inline; "
             "style-src 'self' 'unsafe-inline; "
             "img-src 'self' data:;"
         )
