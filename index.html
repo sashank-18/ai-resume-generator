@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Resume Builder</title>
+<style>
+body { font-family: Arial, sans-serif; padding: 20px; max-width: 900px; margin: auto; }
+h2 { margin-top: 30px; }
+input, textarea, select, button { width: 100%; margin: 5px 0 15px; padding: 8px; }
+textarea { min-height: 60px; }
+fieldset { margin-bottom: 20px; padding: 15px; }
+fieldset legend { font-weight: bold; }
+button { cursor: pointer; background-color: #4CAF50; color: white; border: none; border-radius: 5px; }
+button:hover { background-color: #45a049; }
+.section { margin-bottom: 25px; }
+</style>
+</head>
+<body>
+
+<h1>AI Resume Builder</h1>
+
+
+<div class="section">
+  <h2>Upload Resume (PDF or DOCX)</h2>
+  <input type="file" id="resumeFile" accept=".pdf,.doc,.docx">
+  <button onclick="analyzeResume()">Analyze Resume</button>
+  <p id="uploadStatus"></p>
+</div>
+
+
+<div class="section">
+  <h2>Profile Details</h2>
+  <input type="text" id="name" placeholder="Full Name">
+  <input type="email" id="email" placeholder="Email">
+  <input type="text" id="phone" placeholder="Phone">
+  <input type="text" id="location" placeholder="Location">
+</div>
+
+
+<div class="section">
+  <h2>Summary</h2>
+  <textarea id="summary" placeholder="AI will fill summary here"></textarea>
+  <button onclick="enhanceText('summary')">Enhance Summary with AI</button>
+
+  <h2>Skills</h2>
+  <textarea id="skills" placeholder="AI will fill skills here"></textarea>
+</div>
+
+
+<div class="section">
+  <h2>Experience</h2>
+  <div id="experienceContainer"></div>
+  <button onclick="addExperience()">Add Experience</button>
+</div>
+
+
+<div class="section">
+  <h2>Education</h2>
+  <div id="educationContainer"></div>
+  <button onclick="addEducation()">Add Education</button>
+</div>
+
+
+<div class="section">
+  <button onclick="generateResume()">Generate Resume DOCX</button>
+</div>
+
+<p id="output"></p>
+
+<script>
+const apiBase = "http://127.0.0.1:8000";
+
+
+function addExperience(exp={title:'', company:'', duration:'', description:''}) {
+  const container = document.getElementById("experienceContainer");
+  const div = document.createElement("fieldset");
+  div.innerHTML = `
+    <legend>Experience</legend>
+    <input type="text" class="expTitle" placeholder="Job Title" value="${exp.title}">
+    <input type="text" class="expCompany" placeholder="Company" value="${exp.company}">
+    <input type="text" class="expDuration" placeholder="Duration" value="${exp.duration}">
+    <textarea class="expDescription" placeholder="Description">${exp.description}</textarea>
+    <button type="button" onclick="this.parentElement.remove()">Remove</button>
+  `;
+  container.appendChild(div);
+}
+
+
+function addEducation(edu={degree:'', institution:'', year:''}) {
+  const container = document.getElementById("educationContainer");
+  const div = document.createElement("fieldset");
+  div.innerHTML = `
+    <legend>Education</legend>
+    <input type="text" class="eduDegree" placeholder="Degree" value="${edu.degree}">
+    <input type="text" class="eduInstitution" placeholder="Institution" value="${edu.institution}">
+    <input type="text" class="eduYear" placeholder="Year" value="${edu.year}">
+    <button type="button" onclick="this.parentElement.remove()">Remove</button>
+  `;
+  container.appendChild(div);
+}
+
+
+async function analyzeResume() {
+  const fileInput = document.getElementById("resumeFile");
+  if (!fileInput.files.length) return alert("Please select a file.");
+  const formData = new FormData();
+  formData.append("file", fileInput.files[0]);
+
+  document.getElementById("uploadStatus").innerText = "Analyzing resume...";
+  const res = await fetch(`${apiBase}/analyze`, { method: "POST", body: formData });
+  const data = await res.json();
+
+  if(res.ok){
+    const ai = data.ai_parsed;
+    document.getElementById("summary").value = ai.summary || "";
+    document.getElementById("skills").value = (ai.skills || []).join(", ");
+
+
+    document.getElementById("experienceContainer").innerHTML = "";
+    (ai.experience||[]).forEach(exp => addExperience(exp));
+
+
+    document.getElementById("educationContainer").innerHTML = "";
+    (ai.education||[]).forEach(edu => addEducation(edu));
+
+    document.getElementById("uploadStatus").innerText = "Resume analyzed successfully!";
+  } else {
+    document.getElementById("uploadStatus").innerText = "Error: "+JSON.stringify(data);
+  }
+}
+
+
+async function enhanceText(field) {
+  let text = document.getElementById(field).value;
+  if(!text) return alert("No text to enhance");
+  const formData = new FormData();
+  formData.append("text", text);
+  formData.append("purpose", "resume");
+
+  const res = await fetch(`${apiBase}/enhance`, { method: "POST", body: formData });
+  const data = await res.json();
+  if(res.ok && data.improved) {
+    document.getElementById(field).value = data.improved;
+  } else alert("Enhancement failed");
+}
+
+
+async function generateResume() {
+  const name = document.getElementById("name").value;
+  const email = document.getElementById("email").value;
+  const phone = document.getElementById("phone").value;
+  const location = document.getElementById("location").value;
+  const summary = document.getElementById("summary").value;
+  const skills = document.getElementById("skills").value;
+
+  const education = [];
+  document.querySelectorAll("#educationContainer fieldset").forEach(f => {
+    education.push({
+      degree: f.querySelector(".eduDegree").value,
+      institution: f.querySelector(".eduInstitution").value,
+      year: f.querySelector(".eduYear").value
+    });
+  });
+
+  const experience = [];
+  document.querySelectorAll("#experienceContainer fieldset").forEach(f => {
+    experience.push({
+      title: f.querySelector(".expTitle").value,
+      company: f.querySelector(".expCompany").value,
+      duration: f.querySelector(".expDuration").value,
+      description: f.querySelector(".expDescription").value
+    });
+  });
+
+  const formData = new FormData();
+  formData.append("name", name);
+  formData.append("email", email);
+  formData.append("phone", phone);
+  formData.append("location", location);
+  formData.append("summary", summary);
+  formData.append("skills", skills);
+  formData.append("education_json", JSON.stringify(education));
+  formData.append("experience_json", JSON.stringify(experience));
+
+  const res = await fetch(`${apiBase}/generate`, { method: "POST", body: formData });
+  if(res.ok){
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${name.replace(/\s+/g,'_')}_resume.docx`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  } else {
+    const data = await res.json();
+    alert("Resume generation failed: "+JSON.stringify(data));
+  }
+}
+</script>
+</body>
+</html>

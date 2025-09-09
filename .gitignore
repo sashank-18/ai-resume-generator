@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+env/
+
+# FastAPI logs
+*.log
+
+# Node/Frontend cache (if you add later)
+node_modules/
+
+# Secrets
+.env

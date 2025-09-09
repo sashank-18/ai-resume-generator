@@ -1,0 +1,17 @@
+{
+    "Software Engineer": {
+        "description": "Develops software solutions.",
+        "required_skills": ["Python", "Java", "Problem Solving"],
+        "optional_skills": ["SQL", "Communication"]
+    },
+    "Data Analyst": {
+        "description": "Analyzes data and generates insights.",
+        "required_skills": ["SQL", "Python", "Data Analysis"],
+        "optional_skills": ["Machine Learning", "Communication"]
+    },
+    "Project Manager": {
+        "description": "Leads projects and teams.",
+        "required_skills": ["Leadership", "Communication"],
+        "optional_skills": ["Problem Solving", "SQL"]
+    }
+}
