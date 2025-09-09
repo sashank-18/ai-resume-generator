@@ -8,6 +8,7 @@ import json
 import logging
 import os
 import shutil
+import secrets
 import fitz
 from tempfile import NamedTemporaryFile
 from typing import Optional
@@ -39,21 +40,27 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-class CSPMiddleware(BaseHTTPMiddleware):
+class CSPNonceMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
+        # Generate a secure random nonce on each request
+        nonce = secrets.token_urlsafe(16)
+        
         response = await call_next(request)
+        
         csp_value = (
-            "default-src 'self'; "
-            "connect-src 'self' https://ai-resume-generator-rw01.onrender.com; "
-            "script-src 'self' 'unsafe-inline; "
-            "style-src 'self' 'unsafe-inline; "
-            "img-src 'self' data:;"
+            f"default-src 'self'; "
+            f"connect-src 'self' https://ai-resume-generator-rw01.onrender.com; "
+            f"script-src 'self' 'nonce-{nonce}'; "
+            f"style-src 'self' 'nonce-{nonce}'; "
+            f"img-src 'self' data:;"
         )
         response.headers['Content-Security-Policy'] = csp_value
+        
+        response.headers['X-CSP-Nonce'] = nonce
+
         return response
 
-app.add_middleware(CSPMiddleware)
-
+app.add_middleware(CSPNonceMiddleware)
 app.mount("/static", StaticFiles(directory="public"), name="static")
 
 @app.get("/")
