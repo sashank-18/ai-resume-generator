@@ -121,10 +121,51 @@ function addEducation() {
 }
 
 // --- Enhance Summary ---
-function enhanceText(id) {
+async function enhanceText(id) {
   const textarea = document.getElementById(id);
-  textarea.value = textarea.value + " (Enhanced by AI 🚀)";
+  const text = textarea.value.trim();
+
+  if (!text) {
+    alert("Please enter some text to enhance!");
+    return;
+  }
+
+  // Optional: show temporary status
+  const originalValue = textarea.value;
+  textarea.value = "Enhancing text... ⏳";
+
+  try {
+    const formData = new FormData();
+    formData.append("text", text);
+    formData.append("purpose", "resume"); // or "general" for other text
+
+    const res = await fetch(`${apiBase}/enhance`, {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!res.ok) {
+      let errData;
+      try {
+        errData = await res.json();
+      } catch {
+        errData = { error: "Server returned non-JSON response" };
+      }
+      throw new Error(errData.error || "Enhancement failed");
+    }
+
+    const data = await res.json();
+
+    // ✅ Replace textarea content with AI-enhanced text
+    textarea.value = data.improved || originalValue;
+
+  } catch (err) {
+    alert("AI enhancement failed: " + err.message);
+    textarea.value = originalValue;
+    console.error(err);
+  }
 }
+
 
 // --- Analyze Resume ---
 async function analyzeResume() {
