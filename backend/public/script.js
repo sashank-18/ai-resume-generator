@@ -172,7 +172,6 @@ async function analyzeResume() {
   const fileInput = document.getElementById("resumeFile");
   const file = fileInput.files[0];
 
-  // ✅ Validate file
   if (!file) {
     alert("Please select a resume file first!");
     return;
@@ -184,76 +183,84 @@ async function analyzeResume() {
   try {
     document.getElementById("uploadStatus").innerText = "Analyzing resume... ⏳";
 
-    const res = await fetch(`${apiBase}/analyze`, {
-      method: "POST",
-      body: formData,
-    });
-
+    const res = await fetch(`${apiBase}/analyze`, { method: "POST", body: formData });
     if (!res.ok) {
-      let errData;
-      try {
-        errData = await res.json();
-      } catch {
-        errData = { error: "Server returned non-JSON response" };
-      }
-      throw new Error(errData.detail || errData.error || "Analysis failed");
+      const err = await res.json();
+      throw new Error(err.detail || "Analysis failed");
     }
 
     const data = await res.json();
 
-    // ✅ Autofill profile details safely
+    // Autofill extracted data
     document.getElementById("name").value = data.name || "";
     document.getElementById("email").value = data.email || "";
     document.getElementById("phone").value = data.phone || "";
     document.getElementById("location").value = data.location || "";
-    document.getElementById("summary").value = data.summary || "";
+
+    // Summary + AI enhancement
+    if (data.summary) {
+      const enhancedSummary = await enhanceTextRemote(data.summary);
+      document.getElementById("summary").value = enhancedSummary;
+    }
 
     // Skills
     if (Array.isArray(data.skills)) {
-      const skillsArray = data.skills.map(skill => {
-        if (typeof skill === "string") return skill;
-        if (typeof skill === "object" && skill.name) return skill.name;
-        return "";
-      }).filter(Boolean);
+      const skillsArray = data.skills.map(s => (typeof s === "string" ? s : s.name || "")).filter(Boolean);
       document.getElementById("skills").value = skillsArray.join(", ");
     }
 
     // Education
-    const containerEdu = document.getElementById("educationContainer");
-    containerEdu.innerHTML = "";
     if (Array.isArray(data.education)) {
+      const container = document.getElementById("educationContainer");
+      container.innerHTML = "";
       data.education.forEach(edu => {
-        const f = document.createElement("fieldset");
-        f.innerHTML = `
+        const fieldset = document.createElement("fieldset");
+        fieldset.innerHTML = `
           <legend>Education</legend>
           <input type="text" class="eduDegree" value="${edu.degree || ""}" placeholder="Degree">
           <input type="text" class="eduInstitution" value="${edu.institution || ""}" placeholder="Institution">
           <input type="text" class="eduYear" value="${edu.year || ""}" placeholder="Year">
         `;
-        containerEdu.appendChild(f);
+        container.appendChild(fieldset);
       });
     }
 
     // Experience
-    const containerExp = document.getElementById("experienceContainer");
-    containerExp.innerHTML = "";
     if (Array.isArray(data.experience)) {
+      const container = document.getElementById("experienceContainer");
+      container.innerHTML = "";
       data.experience.forEach(exp => {
-        const f = document.createElement("fieldset");
-        f.innerHTML = `
+        const fieldset = document.createElement("fieldset");
+        fieldset.innerHTML = `
           <legend>Experience</legend>
           <input type="text" class="expTitle" value="${exp.title || ""}" placeholder="Job Title">
           <input type="text" class="expCompany" value="${exp.company || ""}" placeholder="Company">
           <input type="text" class="expDuration" value="${exp.duration || ""}" placeholder="Duration">
           <textarea class="expDescription" placeholder="Description">${exp.description || ""}</textarea>
         `;
-        containerExp.appendChild(f);
+        container.appendChild(fieldset);
       });
     }
 
     document.getElementById("uploadStatus").innerText = "Resume analysis completed ✅";
   } catch (err) {
     document.getElementById("uploadStatus").innerText = "❌ " + err.message;
-    console.error(err);
+  }
+}
+
+// Sends text to backend /enhance and returns improved text
+async function enhanceTextRemote(text) {
+  try {
+    const formData = new FormData();
+    formData.append("text", text);
+    formData.append("purpose", "resume");
+
+    const res = await fetch(`${apiBase}/enhance`, { method: "POST", body: formData });
+    if (!res.ok) return text; // fallback
+
+    const data = await res.json();
+    return data.improved || text;
+  } catch {
+    return text; // fallback if AI fails
   }
 }

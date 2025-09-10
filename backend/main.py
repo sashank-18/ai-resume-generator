@@ -133,6 +133,8 @@ async def analyze_resume(
     file: Optional[UploadFile] = File(None)
 ):
     extracted_text = ""
+
+    # 1️⃣ Extract text from uploaded file
     if file:
         suffix = os.path.splitext(file.filename)[1].lower()
         with NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
@@ -153,24 +155,54 @@ async def analyze_resume(
     else:
         return JSONResponse({"error": "No text or file provided."}, status_code=400)
 
-    ai_data = parse_resume_with_ai(extracted_text)
+    # 2️⃣ Parse with AI and ensure JSON fields
+    try:
+        prompt = f"""
+        You are an AI that extracts structured resume data.
+
+        Extract JSON with fields:
+        {{
+          "summary": "A 2-3 sentence professional summary",
+          "skills": ["list of technical or soft skills"],
+          "experience": [{"title":"", "company":"", "duration":"", "description":""}],
+          "education": [{"degree":"", "institution":"", "year":""}]
+        }}
+
+        Resume Text:
+        {extracted_text}
+
+        ONLY return valid JSON.
+        """
+
+        ai_text = genai.GenerativeModel("gemini-2.5-pro").generate_content(prompt).text
+        data = json.loads(ai_text)
+
+        # 3️⃣ Ensure summary and skills are not empty
+        if not data.get("summary"):
+            data["summary"] = "\n".join(extracted_text.split("\n")[:3])
+
+        if not data.get("skills") or not isinstance(data["skills"], list):
+            # Simple fallback: extract keywords from resume text
+            text_lower = extracted_text.lower()
+            common_skills = ["python", "java", "javascript", "c++", "sql", "fastapi", "react", "html", "css"]
+            data["skills"] = [s.capitalize() for s in common_skills if s in text_lower]
+
+    except Exception as e:
+        # Fallback if AI fails completely
+        print("AI parsing failed:", e)
+        data = {
+            "summary": "\n".join(extracted_text.split("\n")[:3]),
+            "skills": [],
+            "experience": [],
+            "education": []
+        }
+
+    # 4️⃣ Return JSON
     return {
         "extracted_text_snippet": extracted_text[:300],
-        "ai_parsed": ai_data
+        **data  # summary, skills, experience, education
     }
 
-@app.post("/enhance")
-async def enhance_text(
-    text: str = Form(...),
-    purpose: str = Form("resume")
-):
-    if purpose == "resume":
-        system_prompt = "Rewrite this resume text to be concise, professional, and achievement-focused."
-    else:
-        system_prompt = "Improve grammar, clarity, and professionalism of this text."
-    
-    improved = await gemini_call(system_prompt + "\n\n" + text)
-    return {"original": text, "improved": improved}
 
 @app.post("/generate")
 async def generate_resume(
