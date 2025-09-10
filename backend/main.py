@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.requests import Request
+from fastapi.responses import Response
 import uvicorn
 import json
 import logging
@@ -110,6 +111,10 @@ def parse_resume_with_ai(text: str):
         data = {"summary": text[:200], "skills": [], "experience": [], "education": []}
     return data
 
+
+@app.head("/")
+async def head_index():
+    return Response(status_code=200)
 
 @app.get("/hello")
 def hello():
