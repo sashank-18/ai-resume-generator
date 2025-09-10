@@ -97,6 +97,7 @@ def hello():
     return {"message": "Hello World"}
 
 # --- Analyze Resume ---
+# --- /analyze endpoint ---
 @app.post("/analyze")
 async def analyze_resume(
     text: Optional[str] = Form(None),
@@ -104,6 +105,7 @@ async def analyze_resume(
 ):
     extracted_text = ""
 
+    # Extract text from uploaded file
     if file:
         suffix = os.path.splitext(file.filename)[1].lower()
         with NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
@@ -124,24 +126,28 @@ async def analyze_resume(
     else:
         return JSONResponse({"error": "No text or file provided."}, status_code=400)
 
-    # --- AI Parsing ---
+    # AI parsing with proper escaping
     try:
         prompt = f"""
-        Extract structured JSON from the resume text.
-        Format strictly as JSON:
-        {{
-          "summary": "",
-          "skills": [],
-          "experience": [{{"title":"", "company":"", "duration":"", "description":""}}],
-          "education": [{{"degree":"", "institution":"", "year":""}}]
-        }}
-        Resume Text:
-        {extracted_text}
-        """
+You are an AI that extracts structured resume data.
+
+Extract JSON with fields:
+{{
+  "summary": "A 2-3 sentence professional summary",
+  "skills": ["list of technical or soft skills"],
+  "experience": [{{"title":"", "company":"", "duration":"", "description":""}}],
+  "education": [{{"degree":"", "institution":"", "year":""}}]
+}}
+
+Resume Text:
+{extracted_text}
+
+ONLY return valid JSON.
+"""
         ai_text = genai.GenerativeModel("gemini-2.5-pro").generate_content(prompt).text
         data = json.loads(ai_text)
-        
-        # Fallbacks
+
+        # Fallbacks if AI didn't return proper data
         if not data.get("summary"):
             data["summary"] = "\n".join(extracted_text.split("\n")[:3])
         if not data.get("skills") or not isinstance(data["skills"], list):
@@ -150,7 +156,7 @@ async def analyze_resume(
             data["skills"] = [s.capitalize() for s in common_skills if s in text_lower]
 
     except Exception as e:
-        logger.error(f"AI parsing failed: {e}")
+        print("AI parsing failed:", e)
         data = {
             "summary": "\n".join(extracted_text.split("\n")[:3]),
             "skills": [],
@@ -163,9 +169,10 @@ async def analyze_resume(
         **data
     }
 
-# --- Enhance Text ---
+
+# --- /enhance endpoint ---
 @app.post("/enhance")
-async def enhance_text_endpoint(
+async def enhance_resume(
     text: str = Form(...),
     purpose: str = Form("resume")
 ):
@@ -174,8 +181,14 @@ async def enhance_text_endpoint(
     else:
         system_prompt = "Improve grammar, clarity, and professionalism of this text."
 
-    improved = await gemini_call(system_prompt + "\n\n" + text)
-    return {"original": text, "improved": improved}
+    try:
+        improved_text = await gemini_call(system_prompt + "\n\n" + text)
+    except Exception as e:
+        improved_text = text
+        print("AI enhancement failed:", e)
+
+    return {"original": text, "improved": improved_text}
+
 
 # --- Generate Resume ---
 @app.post("/generate")
