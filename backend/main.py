@@ -28,14 +28,12 @@ from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
 from PyPDF2 import PdfReader
 templates = Jinja2Templates(directory="public")
 
-# Load environment variables
 load_dotenv()
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
 app = FastAPI(title="AI Resume & Career Guidance Bot")
-logging.basicConfig(level=logging.INFO)  # Set level to DEBUG, INFO, etc.
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-# Enable CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -46,7 +44,7 @@ app.add_middleware(
 class CSPNonceMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
         nonce = secrets.token_urlsafe(16)
-        request.state.nonce = nonce  # ✅ store in request state
+        request.state.nonce = nonce 
 
         response = await call_next(request)
 
@@ -67,12 +65,10 @@ app.mount("/static", StaticFiles(directory="public"), name="static")
 
 @app.get("/")
 async def serve_index(request: Request):
-    # Get nonce from middleware
     nonce = getattr(request.state, "nonce", "")
     return templates.TemplateResponse("index.html", {"request": request, "nonce": nonce})
 
 
-# Utility functions
 def extract_text_from_pdf(file_path: str) -> str:
     text = []
     with open(file_path, "rb") as fh:
@@ -114,13 +110,11 @@ def parse_resume_with_ai(text: str):
         data = {"summary": text[:200], "skills": [], "experience": [], "education": []}
     return data
 
-# --- Endpoints ---
 
 @app.get("/hello")
 def hello():
     logger.info("Hello endpoint was called")
     try:
-        # your logic
         logger.debug("Additional debug info")
     except Exception as e:
         logger.error(f"Error occurred: {e}", exc_info=True)
@@ -134,7 +128,7 @@ async def analyze_resume(
 ):
     extracted_text = ""
 
-    # 1️⃣ Extract text from uploaded file
+
     if file:
         suffix = os.path.splitext(file.filename)[1].lower()
         with NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
@@ -155,7 +149,6 @@ async def analyze_resume(
     else:
         return JSONResponse({"error": "No text or file provided."}, status_code=400)
 
-    # 2️⃣ Parse with AI and ensure JSON fields
     try:
         prompt = f"""
         You are an AI that extracts structured resume data.
@@ -177,18 +170,15 @@ async def analyze_resume(
         ai_text = genai.GenerativeModel("gemini-2.5-pro").generate_content(prompt).text
         data = json.loads(ai_text)
 
-        # 3️⃣ Ensure summary and skills are not empty
         if not data.get("summary"):
             data["summary"] = "\n".join(extracted_text.split("\n")[:3])
 
         if not data.get("skills") or not isinstance(data["skills"], list):
-            # Simple fallback: extract keywords from resume text
             text_lower = extracted_text.lower()
             common_skills = ["python", "java", "javascript", "c++", "sql", "fastapi", "react", "html", "css"]
             data["skills"] = [s.capitalize() for s in common_skills if s in text_lower]
 
     except Exception as e:
-        # Fallback if AI fails completely
         print("AI parsing failed:", e)
         data = {
             "summary": "\n".join(extracted_text.split("\n")[:3]),
@@ -197,10 +187,9 @@ async def analyze_resume(
             "education": []
         }
 
-    # 4️⃣ Return JSON
     return {
         "extracted_text_snippet": extracted_text[:300],
-        **data  # summary, skills, experience, education
+        **data  
     }
 
 
@@ -220,8 +209,6 @@ async def generate_resume(
         experience = json.loads(experience_json)
 
         doc = Document()
-
-        # Header
         header = doc.add_paragraph(name)
         header.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
         run = header.runs[0]
@@ -233,18 +220,15 @@ async def generate_resume(
 
         doc.add_paragraph()
 
-        # Summary
         if summary:
             doc.add_heading("Professional Summary", level=1)
             doc.add_paragraph(summary)
 
-        # Skills (bullet points)
         if skills:
             doc.add_heading("Key Skills", level=1)
             for skill in skills.split(","):
                 doc.add_paragraph(skill.strip(), style="List Bullet")
 
-        # Experience (bullet points for descriptions)
         if experience:
             doc.add_heading("Work Experience", level=1)
             for exp in experience:
@@ -258,7 +242,6 @@ async def generate_resume(
                         if line.strip():
                             doc.add_paragraph(line.strip(), style="List Bullet")
 
-        # Education
         if education:
             doc.add_heading("Education", level=1)
             for edu in education:
@@ -282,6 +265,5 @@ async def generate_resume(
         return JSONResponse({"error": str(e)}, status_code=500)
 
 
-# Run locally
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

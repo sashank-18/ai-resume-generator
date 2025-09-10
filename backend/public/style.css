@@ -1,4 +1,4 @@
-/* Global body styles */
+
 body {
   font-family: Arial, sans-serif;
   padding: 20px;
@@ -8,7 +8,6 @@ body {
   color: #333;
 }
 
-/* Headings */
 h1 {
   text-align: center;
   margin-bottom: 30px;
@@ -19,7 +18,7 @@ h2 {
   color: #2c3e50;
 }
 
-/* Form elements */
+
 input,
 textarea,
 select,
@@ -34,11 +33,17 @@ button {
 }
 
 textarea {
-  min-height: 60px;
-  resize: vertical;
+  min-height: 150px;
+  padding: 10px;
+  font-size: 16px;
 }
 
-/* Fieldsets */
+#summary {
+  min-height: 150px; 
+  resize: vertical;  
+  font-size: 16px;
+}
+
 fieldset {
   margin-bottom: 20px;
   padding: 15px;
@@ -52,7 +57,6 @@ fieldset legend {
   padding: 0 5px;
 }
 
-/* Buttons */
 button {
   cursor: pointer;
   background-color: #4CAF50;
@@ -67,7 +71,6 @@ button:hover {
   background-color: #45a049;
 }
 
-/* Section container */
 .section {
   margin-bottom: 25px;
   padding: 15px;
@@ -76,7 +79,6 @@ button:hover {
   box-shadow: 0px 2px 6px rgba(0, 0, 0, 0.05);
 }
 
-/* Output messages */
 #uploadStatus,
 #output {
   font-size: 14px;
@@ -84,7 +86,6 @@ button:hover {
   margin-top: 10px;
 }
 
-/* Small adjustments for experience/education fields */
 #experienceContainer fieldset,
 #educationContainer fieldset {
   margin-bottom: 10px;

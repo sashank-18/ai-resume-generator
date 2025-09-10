@@ -1,6 +1,6 @@
 const apiBase = "https://ai-resume-generator-rw01.onrender.com"; // your backend URL
 
-// ✅ Button event listeners with preventDefault
+
 document.getElementById("generateBtn").addEventListener("click", async (e) => {
   e.preventDefault();
   await generateResume();
@@ -26,7 +26,7 @@ document.getElementById("analyzeBtn").addEventListener("click", async (e) => {
   await analyzeResume();
 });
 
-// --- Generate Resume ---
+
 async function generateResume() {
   const name = document.getElementById("name").value.trim();
   const email = document.getElementById("email").value.trim();
@@ -35,7 +35,7 @@ async function generateResume() {
   const summary = document.getElementById("summary").value.trim() || "";
   const skills = document.getElementById("skills").value.trim() || "";
 
-  // ✅ Validate required fields
+
   if (!name || !email || !phone || !location) {
     alert("Please fill in all required fields: Name, Email, Phone, Location.");
     return;
@@ -93,7 +93,7 @@ async function generateResume() {
 }
 
 
-// --- Add Experience ---
+
 function addExperience() {
   const container = document.getElementById("experienceContainer");
   const fieldset = document.createElement("fieldset");
@@ -107,7 +107,7 @@ function addExperience() {
   container.appendChild(fieldset);
 }
 
-// --- Add Education ---
+
 function addEducation() {
   const container = document.getElementById("educationContainer");
   const fieldset = document.createElement("fieldset");
@@ -120,7 +120,7 @@ function addEducation() {
   container.appendChild(fieldset);
 }
 
-// --- Enhance Summary ---
+
 async function enhanceText(id) {
   const textarea = document.getElementById(id);
   const text = textarea.value.trim();
@@ -130,14 +130,14 @@ async function enhanceText(id) {
     return;
   }
 
-  // Optional: show temporary status
+
   const originalValue = textarea.value;
   textarea.value = "Enhancing text... ⏳";
 
   try {
     const formData = new FormData();
     formData.append("text", text);
-    formData.append("purpose", "resume"); // or "general" for other text
+    formData.append("purpose", "resume");
 
     const res = await fetch(`${apiBase}/enhance`, {
       method: "POST",
@@ -156,7 +156,7 @@ async function enhanceText(id) {
 
     const data = await res.json();
 
-    // ✅ Replace textarea content with AI-enhanced text
+ 
     textarea.value = data.improved || originalValue;
 
   } catch (err) {
@@ -167,7 +167,7 @@ async function enhanceText(id) {
 }
 
 
-// --- Analyze Resume ---
+
 async function analyzeResume() {
   const fileInput = document.getElementById("resumeFile");
   const file = fileInput.files[0];
@@ -191,25 +191,34 @@ async function analyzeResume() {
 
     const data = await res.json();
 
-    // Autofill extracted data
+
     document.getElementById("name").value = data.name || "";
     document.getElementById("email").value = data.email || "";
     document.getElementById("phone").value = data.phone || "";
     document.getElementById("location").value = data.location || "";
 
-    // Summary + AI enhancement
+
     if (data.summary) {
       const enhancedSummary = await enhanceTextRemote(data.summary);
       document.getElementById("summary").value = enhancedSummary;
     }
 
-    // Skills
+    function autoResizeTextarea(id) {
+  const textarea = document.getElementById(id);
+  textarea.style.height = 'auto';
+  textarea.style.height = textarea.scrollHeight + 'px';
+}
+
+document.getElementById("summary").value = enhancedSummary;
+autoResizeTextarea("summary");
+
+
     if (Array.isArray(data.skills)) {
       const skillsArray = data.skills.map(s => (typeof s === "string" ? s : s.name || "")).filter(Boolean);
       document.getElementById("skills").value = skillsArray.join(", ");
     }
 
-    // Education
+
     if (Array.isArray(data.education)) {
       const container = document.getElementById("educationContainer");
       container.innerHTML = "";
@@ -225,7 +234,7 @@ async function analyzeResume() {
       });
     }
 
-    // Experience
+
     if (Array.isArray(data.experience)) {
       const container = document.getElementById("experienceContainer");
       container.innerHTML = "";
@@ -248,7 +257,7 @@ async function analyzeResume() {
   }
 }
 
-// Sends text to backend /enhance and returns improved text
+
 async function enhanceTextRemote(text) {
   try {
     const formData = new FormData();
@@ -256,11 +265,11 @@ async function enhanceTextRemote(text) {
     formData.append("purpose", "resume");
 
     const res = await fetch(`${apiBase}/enhance`, { method: "POST", body: formData });
-    if (!res.ok) return text; // fallback
+    if (!res.ok) return text; 
 
     const data = await res.json();
     return data.improved || text;
   } catch {
-    return text; // fallback if AI fails
+    return text; 
   }
 }
