@@ -1,40 +1,40 @@
 from io import BytesIO
-from fastapi import FastAPI, File, UploadFile, Form
-from fastapi.responses import JSONResponse, StreamingResponse, FileResponse
+from fastapi import FastAPI, File, UploadFile, Form, Request
+from fastapi.responses import JSONResponse, StreamingResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.requests import Request
-from fastapi.responses import Response
+from starlette.middleware.base import BaseHTTPMiddleware
 import uvicorn
 import json
-import logging
 import os
 import shutil
 import secrets
-import fitz
 from tempfile import NamedTemporaryFile
 from typing import Optional
 from dotenv import load_dotenv
-from starlette.middleware.base import BaseHTTPMiddleware
-
 
 import google.generativeai as genai
-
 import docx
 from docx import Document
 from docx.shared import Pt
 from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
-
 from PyPDF2 import PdfReader
-templates = Jinja2Templates(directory="public")
 
+# --- Load env and configure Gemini API ---
 load_dotenv()
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
+# --- FastAPI App ---
 app = FastAPI(title="AI Resume & Career Guidance Bot")
+templates = Jinja2Templates(directory="public")
+
+# --- Logging & CORS ---
+import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -42,13 +42,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# --- CSP Nonce Middleware ---
 class CSPNonceMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
         nonce = secrets.token_urlsafe(16)
-        request.state.nonce = nonce 
-
+        request.state.nonce = nonce
         response = await call_next(request)
-
         csp_value = (
             f"default-src 'self'; "
             f"connect-src 'self' https://ai-resume-generator-rw01.onrender.com; "
@@ -58,18 +58,12 @@ class CSPNonceMiddleware(BaseHTTPMiddleware):
         )
         response.headers["Content-Security-Policy"] = csp_value
         response.headers["X-CSP-Nonce"] = nonce
-
         return response
 
 app.add_middleware(CSPNonceMiddleware)
 app.mount("/static", StaticFiles(directory="public"), name="static")
 
-@app.get("/")
-async def serve_index(request: Request):
-    nonce = getattr(request.state, "nonce", "")
-    return templates.TemplateResponse("index.html", {"request": request, "nonce": nonce})
-
-
+# --- Utility Functions ---
 def extract_text_from_pdf(file_path: str) -> str:
     text = []
     with open(file_path, "rb") as fh:
@@ -91,48 +85,24 @@ async def gemini_call(prompt: str, model: str = "gemini-2.5-pro") -> str:
     except Exception as e:
         return f"Gemini API error: {str(e)}"
 
-def parse_resume_with_ai(text: str):
-    prompt = f"""
-    Extract a JSON from the following resume text.
-    Format strictly as JSON with fields:
-    {{
-      "summary": "",
-      "skills": ["skill1", "skill2"],
-      "experience": [{{"title":"", "company":"", "duration":"", "description":""}}],
-      "education": [{{"degree":"", "institution":"", "year":""}}]
-    }}
-    Resume Text:
-    {text}
-    """
-    try:
-        ai_text = genai.GenerativeModel("gemini-2.5-pro").generate_content(prompt).text
-        data = json.loads(ai_text)
-    except:
-        data = {"summary": text[:200], "skills": [], "experience": [], "education": []}
-    return data
-
-
+# --- Routes ---
+@app.get("/")
 @app.head("/")
-async def head_index():
-    return Response(status_code=200)
+async def serve_index(request: Request):
+    nonce = getattr(request.state, "nonce", "")
+    return templates.TemplateResponse("index.html", {"request": request, "nonce": nonce})
 
 @app.get("/hello")
 def hello():
-    logger.info("Hello endpoint was called")
-    try:
-        logger.debug("Additional debug info")
-    except Exception as e:
-        logger.error(f"Error occurred: {e}", exc_info=True)
     return {"message": "Hello World"}
 
-
+# --- Analyze Resume ---
 @app.post("/analyze")
 async def analyze_resume(
     text: Optional[str] = Form(None),
     file: Optional[UploadFile] = File(None)
 ):
     extracted_text = ""
-
 
     if file:
         suffix = os.path.splitext(file.filename)[1].lower()
@@ -154,37 +124,33 @@ async def analyze_resume(
     else:
         return JSONResponse({"error": "No text or file provided."}, status_code=400)
 
+    # --- AI Parsing ---
     try:
         prompt = f"""
-        You are an AI that extracts structured resume data.
-
-        Extract JSON with fields:
+        Extract structured JSON from the resume text.
+        Format strictly as JSON:
         {{
-          "summary": "A 2-3 sentence professional summary",
-          "skills": ["list of technical or soft skills"],
-          "experience": [{"title":"", "company":"", "duration":"", "description":""}],
-          "education": [{"degree":"", "institution":"", "year":""}]
+          "summary": "",
+          "skills": [],
+          "experience": [{{"title":"", "company":"", "duration":"", "description":""}}],
+          "education": [{{"degree":"", "institution":"", "year":""}}]
         }}
-
         Resume Text:
         {extracted_text}
-
-        ONLY return valid JSON.
         """
-
         ai_text = genai.GenerativeModel("gemini-2.5-pro").generate_content(prompt).text
         data = json.loads(ai_text)
-
+        
+        # Fallbacks
         if not data.get("summary"):
             data["summary"] = "\n".join(extracted_text.split("\n")[:3])
-
         if not data.get("skills") or not isinstance(data["skills"], list):
-            text_lower = extracted_text.lower()
             common_skills = ["python", "java", "javascript", "c++", "sql", "fastapi", "react", "html", "css"]
+            text_lower = extracted_text.lower()
             data["skills"] = [s.capitalize() for s in common_skills if s in text_lower]
 
     except Exception as e:
-        print("AI parsing failed:", e)
+        logger.error(f"AI parsing failed: {e}")
         data = {
             "summary": "\n".join(extracted_text.split("\n")[:3]),
             "skills": [],
@@ -194,10 +160,24 @@ async def analyze_resume(
 
     return {
         "extracted_text_snippet": extracted_text[:300],
-        **data  
+        **data
     }
 
+# --- Enhance Text ---
+@app.post("/enhance")
+async def enhance_text_endpoint(
+    text: str = Form(...),
+    purpose: str = Form("resume")
+):
+    if purpose == "resume":
+        system_prompt = "Rewrite this resume text to be concise, professional, and achievement-focused."
+    else:
+        system_prompt = "Improve grammar, clarity, and professionalism of this text."
 
+    improved = await gemini_call(system_prompt + "\n\n" + text)
+    return {"original": text, "improved": improved}
+
+# --- Generate Resume ---
 @app.post("/generate")
 async def generate_resume(
     name: str = Form(...),
@@ -222,7 +202,6 @@ async def generate_resume(
 
         contact = doc.add_paragraph(f"{email} | {phone} | {location}")
         contact.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
-
         doc.add_paragraph()
 
         if summary:
@@ -262,13 +241,11 @@ async def generate_resume(
         return StreamingResponse(
             buf,
             media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            headers={
-                "Content-Disposition": f"attachment; filename={name.replace(' ','_')}_resume.docx"
-            },
+            headers={"Content-Disposition": f"attachment; filename={name.replace(' ','_')}_resume.docx"},
         )
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
 
-
+# --- Run App ---
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
