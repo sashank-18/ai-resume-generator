@@ -1,37 +1,58 @@
 const apiBase = "https://ai-resume-generator-rw01.onrender.com"; // your backend URL
 
-document.getElementById("generateBtn").addEventListener("click", generateResume);
-document.getElementById("addExperienceBtn").addEventListener("click", addExperience);
-document.getElementById("addEducationBtn").addEventListener("click", addEducation);
-document.getElementById("enhanceSummaryBtn").addEventListener("click", () => enhanceText("summary"));
-document.getElementById("analyzeBtn").addEventListener("click", analyzeResume);
+// ✅ Button event listeners with preventDefault
+document.getElementById("generateBtn").addEventListener("click", async (e) => {
+  e.preventDefault();
+  await generateResume();
+});
 
+document.getElementById("addExperienceBtn").addEventListener("click", (e) => {
+  e.preventDefault();
+  addExperience();
+});
+
+document.getElementById("addEducationBtn").addEventListener("click", (e) => {
+  e.preventDefault();
+  addEducation();
+});
+
+document.getElementById("enhanceSummaryBtn").addEventListener("click", (e) => {
+  e.preventDefault();
+  enhanceText("summary");
+});
+
+document.getElementById("analyzeBtn").addEventListener("click", async (e) => {
+  e.preventDefault();
+  await analyzeResume();
+});
+
+// --- Generate Resume ---
 async function generateResume() {
-  const name = document.getElementById("name").value;
-  const email = document.getElementById("email").value;
-  const phone = document.getElementById("phone").value;
-  const location = document.getElementById("location").value;
-  const summary = document.getElementById("summary").value;
-  const skills = document.getElementById("skills").value;
+  const name = document.getElementById("name").value.trim();
+  const email = document.getElementById("email").value.trim();
+  const phone = document.getElementById("phone").value.trim();
+  const location = document.getElementById("location").value.trim();
+  const summary = document.getElementById("summary").value.trim() || "";
+  const skills = document.getElementById("skills").value.trim() || "";
 
-  const education = [];
-  document.querySelectorAll("#educationContainer fieldset").forEach(f => {
-    education.push({
-      degree: f.querySelector(".eduDegree").value,
-      institution: f.querySelector(".eduInstitution").value,
-      year: f.querySelector(".eduYear").value
-    });
-  });
+  // ✅ Validate required fields
+  if (!name || !email || !phone || !location) {
+    alert("Please fill in all required fields: Name, Email, Phone, Location.");
+    return;
+  }
 
-  const experience = [];
-  document.querySelectorAll("#experienceContainer fieldset").forEach(f => {
-    experience.push({
-      title: f.querySelector(".expTitle").value,
-      company: f.querySelector(".expCompany").value,
-      duration: f.querySelector(".expDuration").value,
-      description: f.querySelector(".expDescription").value
-    });
-  });
+  const education = Array.from(document.querySelectorAll("#educationContainer fieldset")).map(f => ({
+    degree: f.querySelector(".eduDegree")?.value || "",
+    institution: f.querySelector(".eduInstitution")?.value || "",
+    year: f.querySelector(".eduYear")?.value || ""
+  }));
+
+  const experience = Array.from(document.querySelectorAll("#experienceContainer fieldset")).map(f => ({
+    title: f.querySelector(".expTitle")?.value || "",
+    company: f.querySelector(".expCompany")?.value || "",
+    duration: f.querySelector(".expDuration")?.value || "",
+    description: f.querySelector(".expDescription")?.value || ""
+  }));
 
   const formData = new FormData();
   formData.append("name", name);
@@ -43,23 +64,36 @@ async function generateResume() {
   formData.append("education_json", JSON.stringify(education));
   formData.append("experience_json", JSON.stringify(experience));
 
-  const res = await fetch(`${apiBase}/generate`, { method: "POST", body: formData });
-  if (res.ok) {
-    const blob = await res.blob();
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${name.replace(/\s+/g, "_")}_resume.docx`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-  } else {
-    const data = await res.json();
-    alert("Resume generation failed: " + JSON.stringify(data));
+  try {
+    const res = await fetch(`${apiBase}/generate`, { method: "POST", body: formData });
+
+    if (res.ok) {
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${name.replace(/\s+/g, "_")}_resume.docx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } else {
+      let data;
+      try {
+        data = await res.json();
+      } catch {
+        data = { error: "Server returned non-JSON response" };
+      }
+      alert("Resume generation failed: " + JSON.stringify(data));
+      console.error("Server response:", data);
+    }
+  } catch (err) {
+    alert("Network or server error: " + err.message);
+    console.error(err);
   }
 }
 
-// Placeholder functions (you can fill these in later)
+
+// --- Add Experience ---
 function addExperience() {
   const container = document.getElementById("experienceContainer");
   const fieldset = document.createElement("fieldset");
@@ -73,6 +107,7 @@ function addExperience() {
   container.appendChild(fieldset);
 }
 
+// --- Add Education ---
 function addEducation() {
   const container = document.getElementById("educationContainer");
   const fieldset = document.createElement("fieldset");
@@ -85,15 +120,18 @@ function addEducation() {
   container.appendChild(fieldset);
 }
 
+// --- Enhance Summary ---
 function enhanceText(id) {
   const textarea = document.getElementById(id);
   textarea.value = textarea.value + " (Enhanced by AI 🚀)";
 }
 
+// --- Analyze Resume ---
 async function analyzeResume() {
-  const fileInput = document.getElementById("resumeFile"); // <input type="file" id="resumeFile">
+  const fileInput = document.getElementById("resumeFile");
   const file = fileInput.files[0];
 
+  // ✅ Validate file
   if (!file) {
     alert("Please select a resume file first!");
     return;
@@ -105,57 +143,76 @@ async function analyzeResume() {
   try {
     document.getElementById("uploadStatus").innerText = "Analyzing resume... ⏳";
 
-    const res = await fetch(`${apiBase}/analyze`, { method: "POST", body: formData });
+    const res = await fetch(`${apiBase}/analyze`, {
+      method: "POST",
+      body: formData,
+    });
+
     if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.detail || "Analysis failed");
+      let errData;
+      try {
+        errData = await res.json();
+      } catch {
+        errData = { error: "Server returned non-JSON response" };
+      }
+      throw new Error(errData.detail || errData.error || "Analysis failed");
     }
 
     const data = await res.json();
 
-    // ✅ Autofill extracted data into the form
-    if (data.name) document.getElementById("name").value = data.name;
-    if (data.email) document.getElementById("email").value = data.email;
-    if (data.phone) document.getElementById("phone").value = data.phone;
-    if (data.location) document.getElementById("location").value = data.location;
-    if (data.summary) document.getElementById("summary").value = data.summary;
-    if (data.skills) document.getElementById("skills").value = data.skills.join(", ");
+    // ✅ Autofill profile details safely
+    document.getElementById("name").value = data.name || "";
+    document.getElementById("email").value = data.email || "";
+    document.getElementById("phone").value = data.phone || "";
+    document.getElementById("location").value = data.location || "";
+    document.getElementById("summary").value = data.summary || "";
+
+    // Skills
+    if (Array.isArray(data.skills)) {
+      const skillsArray = data.skills.map(skill => {
+        if (typeof skill === "string") return skill;
+        if (typeof skill === "object" && skill.name) return skill.name;
+        return "";
+      }).filter(Boolean);
+      document.getElementById("skills").value = skillsArray.join(", ");
+    }
 
     // Education
+    const containerEdu = document.getElementById("educationContainer");
+    containerEdu.innerHTML = "";
     if (Array.isArray(data.education)) {
-      const container = document.getElementById("educationContainer");
-      container.innerHTML = "";
       data.education.forEach(edu => {
-        const fieldset = document.createElement("fieldset");
-        fieldset.innerHTML = `
+        const f = document.createElement("fieldset");
+        f.innerHTML = `
           <legend>Education</legend>
           <input type="text" class="eduDegree" value="${edu.degree || ""}" placeholder="Degree">
           <input type="text" class="eduInstitution" value="${edu.institution || ""}" placeholder="Institution">
           <input type="text" class="eduYear" value="${edu.year || ""}" placeholder="Year">
         `;
-        container.appendChild(fieldset);
+        containerEdu.appendChild(f);
       });
     }
 
     // Experience
+    const containerExp = document.getElementById("experienceContainer");
+    containerExp.innerHTML = "";
     if (Array.isArray(data.experience)) {
-      const container = document.getElementById("experienceContainer");
-      container.innerHTML = "";
       data.experience.forEach(exp => {
-        const fieldset = document.createElement("fieldset");
-        fieldset.innerHTML = `
+        const f = document.createElement("fieldset");
+        f.innerHTML = `
           <legend>Experience</legend>
           <input type="text" class="expTitle" value="${exp.title || ""}" placeholder="Job Title">
           <input type="text" class="expCompany" value="${exp.company || ""}" placeholder="Company">
           <input type="text" class="expDuration" value="${exp.duration || ""}" placeholder="Duration">
           <textarea class="expDescription" placeholder="Description">${exp.description || ""}</textarea>
         `;
-        container.appendChild(fieldset);
+        containerExp.appendChild(f);
       });
     }
 
     document.getElementById("uploadStatus").innerText = "Resume analysis completed ✅";
   } catch (err) {
     document.getElementById("uploadStatus").innerText = "❌ " + err.message;
+    console.error(err);
   }
 }
